@@ -4,9 +4,17 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
 const http = require('http');
+const fs = require('fs');
 const { Server } = require('socket.io');
 
 dotenv.config();
+
+// Ensure uploads directory exists (important for cloud deployments)
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  console.log('[INIT] Created uploads directory');
+}
 
 // Prevent unhandled promise rejections from crashing the server
 process.on('unhandledRejection', (err) => {
