@@ -137,8 +137,9 @@ exports.getMarketJobs = async () => {
     } catch (err) {
       console.error('[MarketJobs] API fetch failed, using fallback:', err.message);
     }
+  } else {
+    console.warn('[MarketJobs] RAPIDAPI_KEY not set — using mock data. Add it to Render env vars.');
   }
-  // Fallback to mock
   return MOCK_JOBS;
 };
 

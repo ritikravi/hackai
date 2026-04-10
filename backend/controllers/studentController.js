@@ -66,19 +66,33 @@ exports.uploadResume = async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
 
-    const filePath = path.join(__dirname, '..', 'uploads', req.file.filename);
+    // Cloudinary gives req.file.path as URL, local gives filename
+    const isCloudinary = !!process.env.CLOUDINARY_CLOUD_NAME;
+    const resumeUrl = isCloudinary
+      ? req.file.path  // Cloudinary URL
+      : `/uploads/${req.file.filename}`;
 
-    // Extract text with fallback for malformed PDFs
+    // Extract text — Cloudinary: download then parse; local: read from disk
     let resumeText = '';
     try {
-      resumeText = await extractPdfText(filePath);
+      if (isCloudinary) {
+        const fetch = require('node-fetch');
+        const response = await fetch(req.file.path);
+        const buffer = await response.buffer();
+        const pdfParse = require('pdf-parse');
+        const data = await pdfParse(buffer);
+        resumeText = data.text;
+      } else {
+        const filePath = require('path').join(__dirname, '..', 'uploads', req.file.filename);
+        resumeText = await extractPdfText(filePath);
+      }
     } catch (err) {
       console.error('PDF parse error:', err.message);
     }
 
     if (!resumeText || resumeText.trim().length < 50) {
       return res.status(422).json({
-        message: 'Could not extract text from this PDF. Please try a different PDF (avoid scanned/image-only PDFs).',
+        message: 'Could not extract text from this PDF. Please try a text-based PDF (not scanned/image).',
       });
     }
 
@@ -89,7 +103,7 @@ exports.uploadResume = async (req, res, next) => {
     const profile = await Profile.findOneAndUpdate(
       { userId: req.user.id },
       {
-        resumeUrl: `/uploads/${req.file.filename}`,
+        resumeUrl,
         resumeText,
         skills: analysis.skills || [],
         weaknesses: analysis.weaknesses || [],
